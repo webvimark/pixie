@@ -269,6 +269,7 @@ $firstColumn = QB::table('my_table')->where('name', '=', 'Sana')->getColumn();
 $specificColumn = QB::table('my_table')->where('name', '=', 'Sana')->getColumn('name');
 ```
 $firstColumn will returns array of values of the first column (ussualy it's ids)
+
 $specificColumn will returns array of values of the "name" column
 
 #### Get Scalar
@@ -277,6 +278,7 @@ $firstColumnValue = QB::table('my_table')->where('name', '=', 'Sana')->getScalar
 $specificColumnValue = QB::table('my_table')->where('name', '=', 'Sana')->getScalar('name');
 ```
 $firstColumn will have the value of the first fow first column (ussualy it's ids)
+
 $specificColumn will have the value of the first fow or the "name" column
 
 ### Where
