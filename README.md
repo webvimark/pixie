@@ -265,21 +265,15 @@ $query->count();
 
 #### Get Column
 ```PHP
-$firstColumn = QB::table('my_table')->where('name', '=', 'Sana')->getColumn();
-$specificColumn = QB::table('my_table')->where('name', '=', 'Sana')->getColumn('name');
+$firstColumn = QB::table('my_table')->getColumn(); // ['1','2','3','4'] - first columns it's usually ids
+$specificColumn = QB::table('my_table')->getColumn('name'); // ['John','Sana','Victor','Mark']
 ```
-$firstColumn will returns array of values of the first column (ussualy it's ids)
-
-$specificColumn will returns array of values of the "name" column
 
 #### Get Scalar
 ```PHP
-$firstColumnValue = QB::table('my_table')->where('name', '=', 'Sana')->getScalar();
-$specificColumnValue = QB::table('my_table')->where('name', '=', 'Sana')->getScalar('name');
+$firstColumnValue = QB::table('my_table')->getScalar(); // '1'
+$specificColumnValue = QB::table('my_table')->getScalar('name'); // 'John'
 ```
-$firstColumn will have the value of the first fow first column (ussualy it's ids)
-
-$specificColumn will have the value of the first fow or the "name" column
 
 ### Where
 Basic syntax is `(fieldname, operator, value)`, if you give two parameters then `=` operator is assumed. So `where('name', 'usman')` and `where('name', '=', 'usman')` is the same.
