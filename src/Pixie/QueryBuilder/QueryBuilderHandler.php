@@ -774,7 +774,9 @@ class QueryBuilderHandler
         }
 
         $instance = new static($this->connection, $this->getFetchMode());
-        $instance->setCacheHandler($this->cacheHandler);
+        if ($this->cacheHandler) {
+            $instance->setCacheHandler($this->cacheHandler);
+        }
         $tables = $this->addTablePrefix($tables, false);
         $instance->addStatement('tables', $tables);
         return $instance;
