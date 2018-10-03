@@ -1,7 +1,7 @@
 {
-  "name": "usmanhalalit/pixie",
+  "name": "webvimark/pixie",
   "description": "A lightweight, expressive, framework agnostic query builder for PHP.",
-  "homepage": "https://github.com/usmanhalalit/pixie",
+  "homepage": "https://github.com/webvimark/pixie",
   "keywords": [
     "query builder",
     "sql",

@@ -1,7 +1,7 @@
 **This project is Not Actively Maintained but most of the features are fully working and there are no major security issues, I'm just not giving it much time.**
 
 
-# Pixie Query Builder [![Build Status](https://travis-ci.org/usmanhalalit/pixie.png?branch=master)](https://travis-ci.org/usmanhalalit/pixie)
+# Pixie Query Builder [![Build Status](https://travis-ci.org/webvimark/pixie.png?branch=master)](https://travis-ci.org/webvimark/pixie)
 A lightweight, expressive, framework agnostic query builder for PHP it can also be referred as a Database Abstraction Layer. Pixie supports MySQL, SQLite and PostgreSQL and it takes care of query sanitization, table prefixing and many other things with a unified API. At least PHP 5.3 is required.
 
 It has some advanced features like:
@@ -74,13 +74,13 @@ Pixie uses [Composer](http://getcomposer.org/doc/00-intro.md#installation-nix) t
 
 Learn to use composer and add this to require section (in your composer.json):
 
-    "usmanhalalit/pixie": "2.*@dev"
+    "webvimark/pixie": "2.*@dev"
 
 And run:
 
     composer update
 
-Library on [Packagist](https://packagist.org/packages/usmanhalalit/pixie).
+Library on [Packagist](https://packagist.org/packages/webvimark/pixie).
 
 ## Full Usage API
 
@@ -98,6 +98,8 @@ Library on [Packagist](https://packagist.org/packages/usmanhalalit/pixie).
     - [Get All](#get-all)
     - [Get First Row](#get-first-row)
     - [Get Rows Count](#get-rows-count)
+    - [Get Column](#get-column)
+    - [Get Scalar](#get-scalar)
  - [**Where**](#where)
     - [Where In](#where-in)
     - [Where Between](#where-between)
@@ -207,7 +209,7 @@ The query below returns the (first) row where id = 3, null if no rows.
 ```PHP
 $row = QB::table('my_table')->find(3);
 ```
-Access your row like, `echo $row->name`. If your field name is not `id` then pass the field name as second parameter `QB::table('my_table')->find(3, 'person_id');`.
+Access your row like, `echo $row['name']`. If your field name is not `id` then pass the field name as second parameter `QB::table('my_table')->find(3, 'person_id');`.
 
 The query below returns the all rows where name = 'Sana', null if no rows.
 ```PHP
@@ -243,7 +245,7 @@ $result = $query->get();
 You can loop through it like:
 ```PHP
 foreach ($result as $row) {
-    echo $row->name;
+    echo $row['name'];
 }
 ```
 
@@ -252,7 +254,7 @@ foreach ($result as $row) {
 $query = QB::table('my_table')->where('name', '=', 'Sana');
 $row = $query->first();
 ```
-Returns the first row, or null if there is no record. Using this method you can also make sure if a record exists. Access these like `echo $row->name`.
+Returns the first row, or null if there is no record. Using this method you can also make sure if a record exists. Access these like `echo $row['name']`.
 
 
 #### Get Rows Count
@@ -260,6 +262,22 @@ Returns the first row, or null if there is no record. Using this method you can 
 $query = QB::table('my_table')->where('name', '=', 'Sana');
 $query->count();
 ```
+
+#### Get Column
+```PHP
+$firstColumn = QB::table('my_table')->where('name', '=', 'Sana')->getColumn();
+$specificColumn = QB::table('my_table')->where('name', '=', 'Sana')->getColumn('name');
+```
+$firstColumn will returns array of values of the first column (ussualy it's ids)
+$specificColumn will returns array of values of the "name" column
+
+#### Get Scalar
+```PHP
+$firstColumnValue = QB::table('my_table')->where('name', '=', 'Sana')->getScalar();
+$specificColumnValue = QB::table('my_table')->where('name', '=', 'Sana')->getScalar('name');
+```
+$firstColumn will have the value of the first fow first column (ussualy it's ids)
+$specificColumn will have the value of the first fow or the "name" column
 
 ### Where
 Basic syntax is `(fieldname, operator, value)`, if you give two parameters then `=` operator is assumed. So `where('name', 'usman')` and `where('name', '=', 'usman')` is the same.
