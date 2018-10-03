@@ -96,6 +96,7 @@ Library on [Packagist](https://packagist.org/packages/webvimark/pixie).
     - [Multiple Selects](#multiple-selects)
     - [Select Distinct](#select-distinct)
     - [Get All](#get-all)
+    - [Map Results](#map-results)
     - [Get First Row](#get-first-row)
     - [Get Rows Count](#get-rows-count)
     - [Get Column](#get-column)
@@ -249,6 +250,17 @@ foreach ($result as $row) {
 }
 ```
 
+#### Map Results
+```PHP
+$result = QB::table('my_table')
+    ->where('age', '>', '3')
+    ->map(function($item) {
+        $item['age'] = "{$item['name']} is {$item['age']} years old";
+        return $item;
+    })
+    ->get()
+```
+
 #### Get First Row
 ```PHP
 $query = QB::table('my_table')->where('name', '=', 'Sana');
@@ -265,7 +277,7 @@ $query->count();
 
 #### Get Column
 ```PHP
-$firstColumn = QB::table('my_table')->getColumn(); // ['1','2','3','4'] - first columns it's usually ids
+$firstColumn = QB::table('my_table')->getColumn(); // ['1','2','3','4'] - first column is usually ids
 $specificColumn = QB::table('my_table')->getColumn('name'); // ['John','Sana','Victor','Mark']
 ```
 
