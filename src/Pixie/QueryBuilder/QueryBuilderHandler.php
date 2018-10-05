@@ -462,7 +462,7 @@ class QueryBuilderHandler
 
         return $result;
     }
-    
+
     /**
      * Get all rows. Wrapper for $this->getResult()
      *
@@ -563,6 +563,9 @@ class QueryBuilderHandler
      */
     public function count()
     {
+        $this->withs = [];
+        $this->mapFunction = null;
+        
         // Get the current statements
         $originalStatements = $this->statements;
 
