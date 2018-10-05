@@ -446,6 +446,24 @@ class QueryBuilderHandler
     }
 
     /**
+     * Return indexed array. Usefull for dropdowns
+     *
+     * @param string $indexField
+     * @param string $valueField
+     * @return array
+     */
+    public function pluck($indexField, $valueField)
+    {
+        $items = $this->select([$indexField, $valueField])->get();
+        $result = [];
+        foreach ($items as $item) {
+            $result[$item[$indexField]] = $item[$valueField];
+        }
+
+        return $result;
+    }
+    
+    /**
      * Get all rows. Wrapper for $this->getResult()
      *
      * @return array|\stdClass|null
