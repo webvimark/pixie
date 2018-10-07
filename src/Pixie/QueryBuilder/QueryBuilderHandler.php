@@ -368,11 +368,9 @@ class QueryBuilderHandler
             return $result;
         }
 
-        $qb = new static($this->getConnection());
-
         foreach ($this->withs as $name => $params) {
             if ($params['type'] === 'withManyVia') {
-                $with = $qb->table($params['external_table'])
+                $with = $this->table($params['external_table'])
                     ->select($params['external_table'] . '.*')
                     ->select([$params['via_table'] . '.' . $params['via_table_original_id'] => '___placeholder'])
                     ->innerJoin($params['via_table'], $params['via_table'] . '.' . $params['via_table_external_id'], '=', $params['external_table'] . '.' . $params['external_table_id'])
@@ -380,7 +378,7 @@ class QueryBuilderHandler
                     ->get();
 
             } elseif ($params['type'] === 'withMany') {
-                $with = $qb->table($params['external_table'])
+                $with = $this->table($params['external_table'])
                     ->select($params['external_table'] . '.*')
                     ->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder'])
                     ->whereIn($params['external_table'] . '.' . $params['external_table_id'], array_column($result, $params['original_table_id']))
@@ -459,6 +457,7 @@ class QueryBuilderHandler
         foreach ($items as $item) {
             $result[$item[$indexField]] = $item[$valueField];
         }
+        $items = null;
 
         return $result;
     }
@@ -644,6 +643,36 @@ class QueryBuilderHandler
         }
 
         return $queryBuilder->raw($sql);
+    }
+
+    /**
+     * Ensure that conjunction table has only $relatedIds for $mainId
+     *
+     * @param string $mainIdName
+     * @param string $mainId
+     * @param string $relatedIdName
+     * @param array $relatedIds
+     */
+    public function saveRelated($mainIdName, $mainId, $relatedIdName, array $relatedIds)
+    {
+        $existingRelatedIds = $this->where($mainIdName, $mainId)->getColumn($relatedIdName);
+    
+        $relatedIdsToDelete = array_diff($existingRelatedIds, $relatedIds);
+        if ($relatedIdsToDelete) {
+            $this->where($mainIdName, $mainId)->whereIn($relatedIdName, $relatedIdsToDelete)->delete();
+        }
+    
+        $relatedIdsToAdd = array_diff($relatedIds, $existingRelatedIds);
+        if ($relatedIdsToAdd) {
+            $data = [];
+            foreach ($relatedIdsToAdd as $idToAdd) {
+                $data[] = [
+                    $mainIdName => $mainId,
+                    $relatedIdName => $idToAdd,
+                ];
+            }
+            $this->insert($data);
+        }
     }
 
     /**
