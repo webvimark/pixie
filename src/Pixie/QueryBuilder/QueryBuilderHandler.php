@@ -212,7 +212,7 @@ class QueryBuilderHandler
         $this->cacheHandler = $cacheHandler;
         return $this;
     }
-    
+
     /**
      * Cache time in seconds. 0 - no cache
      *
@@ -328,32 +328,30 @@ class QueryBuilderHandler
      * 
      * Respond with array containing following elements
      * [
-     *      'items' => [...] // array of results
-     *      'total' => 183 // total records
+     *      'items' => [...], // array of results
+     *      'total' => 183, // total records
+     *      'perPage' => 20,
+     *      'currentPage' => 5,
      * ]
      *
      * @param integer $currentPage
      * @param integer $perPage
-     * @param boolean $countTotal - use false if you do not want to count records (minus query)
+     * @param false|int $preDefinedTotal - set some number if you do not want to execute "$this->count()"
      * @return array
      */
-    public function paginate($currentPage, $perPage = 20, $countTotal = true)
+    public function paginate($currentPage, $perPage = 20, $preDefinedTotal = false)
     {
         $currentPage = (int)$currentPage >= 1 ? (int)$currentPage : 1;
         $perPage = (int)$perPage >= 1 ? (int)$perPage : 1;
 
         $this->limit($perPage)->offset(($currentPage - 1) * $perPage);
 
-        if ($countTotal) {
-            return [
-                'items' => $this->get(),
-                'total' => $this->count(),
-            ];
-        } else {
-            return [
-                'items' => $this->get(),
-            ];
-        }
+        return [
+            'items' => $this->get(),
+            'perPage' => $perPage,
+            'currentPage' => $currentPage,
+            'total' => is_umeric($preDefinedTotal) ? (int)abs($preDefinedTotal) : $this->count(),
+        ];
     }
 
     /**
@@ -656,12 +654,12 @@ class QueryBuilderHandler
     public function saveRelated($mainIdName, $mainId, $relatedIdName, array $relatedIds)
     {
         $existingRelatedIds = $this->where($mainIdName, $mainId)->getColumn($relatedIdName);
-    
+
         $relatedIdsToDelete = array_diff($existingRelatedIds, $relatedIds);
         if ($relatedIdsToDelete) {
             $this->where($mainIdName, $mainId)->whereIn($relatedIdName, $relatedIdsToDelete)->delete();
         }
-    
+
         $relatedIdsToAdd = array_diff($relatedIds, $existingRelatedIds);
         if ($relatedIdsToAdd) {
             $data = [];
@@ -1392,7 +1390,7 @@ class QueryBuilderHandler
      */
     public function registerEvent($event, $table, \Closure $action)
     {
-        $table = $table ?: ':any';
+        $table = $table ? : ':any';
 
         if ($table != ':any') {
             $table = $this->addTablePrefix($table, false);
