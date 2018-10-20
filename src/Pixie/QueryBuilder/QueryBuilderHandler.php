@@ -350,7 +350,7 @@ class QueryBuilderHandler
             'items' => $this->get(),
             'perPage' => $perPage,
             'currentPage' => $currentPage,
-            'total' => is_umeric($preDefinedTotal) ? (int)abs($preDefinedTotal) : $this->count(),
+            'total' => is_numeric($preDefinedTotal) ? (int)abs($preDefinedTotal) : $this->count(),
         ];
     }
 
