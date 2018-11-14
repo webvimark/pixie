@@ -1,4 +1,5 @@
-<?php namespace Pixie\QueryBuilder;
+<?php 
+namespace Pixie\QueryBuilder;
 
 use PDO;
 use Pixie\Connection;
@@ -6,7 +7,6 @@ use Pixie\Exception;
 
 class QueryBuilderHandler
 {
-
     /**
      * @var \Viocon\Container
      */
@@ -243,15 +243,16 @@ class QueryBuilderHandler
     }
 
     /**
-     * Add related data from "external_table"
+     * Add 1-1 related data from "external_table"
      *
+     * @param null|\Closure $func
      * @param string $external_table
-     * @param string $external_table_id
      * @param string $original_table_id
+     * @param string $external_table_id
      * @param string $name
      * @return $this
      */
-    public function withMany($external_table, $external_table_id, $original_table_id = 'id', $name = null)
+    public function withOne($func, $external_table, $original_table_id, $external_table_id = 'id', $name = null)
     {
         if ($name === null) {
             $name = $external_table;
@@ -260,6 +261,7 @@ class QueryBuilderHandler
         $this->withs[$name] = array_merge(
             ['type' => __FUNCTION__],
             compact(
+                'func',
                 'name',
                 'external_table',
                 'external_table_id',
@@ -271,8 +273,39 @@ class QueryBuilderHandler
     }
 
     /**
-     * Add related data from "external_table" connnected from "via_table"
+     * Add 1-N related data from "external_table"
      *
+     * @param null|\Closure $func
+     * @param string $external_table
+     * @param string $external_table_id
+     * @param string $original_table_id
+     * @param string $name
+     * @return $this
+     */
+    public function withMany($func, $external_table, $external_table_id, $original_table_id = 'id', $name = null)
+    {
+        if ($name === null) {
+            $name = $external_table;
+        }
+
+        $this->withs[$name] = array_merge(
+            ['type' => __FUNCTION__],
+            compact(
+                'func',
+                'name',
+                'external_table',
+                'external_table_id',
+                'original_table_id'
+            )
+        );
+
+        return $this;
+    }
+
+    /**
+     * Add 1-N related data from "external_table" connnected from "via_table"
+     *
+     * @param null|\Closure $func
      * @param string $external_table
      * @param string $via_table
      * @param string $via_table_original_id
@@ -283,6 +316,7 @@ class QueryBuilderHandler
      * @return $this
      */
     public function withManyVia(
+        $func,
         $external_table,
         $via_table,
         $via_table_original_id,
@@ -298,6 +332,7 @@ class QueryBuilderHandler
         $this->withs[$name] = array_merge(
             ['type' => __FUNCTION__],
             compact(
+                'func',
                 'name',
                 'external_table',
                 'via_table',
@@ -368,19 +403,27 @@ class QueryBuilderHandler
 
         foreach ($this->withs as $name => $params) {
             if ($params['type'] === 'withManyVia') {
-                $with = $this->table($params['external_table'])
+                $qb = $this->table($params['external_table'])
                     ->select($params['external_table'] . '.*')
                     ->select([$params['via_table'] . '.' . $params['via_table_original_id'] => '___placeholder'])
                     ->innerJoin($params['via_table'], $params['via_table'] . '.' . $params['via_table_external_id'], '=', $params['external_table'] . '.' . $params['external_table_id'])
-                    ->whereIn($params['via_table'] . '.' . $params['via_table_original_id'], array_column($result, $params['original_table_id']))
-                    ->get();
+                    ->whereIn($params['via_table'] . '.' . $params['via_table_original_id'], array_unique(array_column($result, $params['original_table_id'])));
 
-            } elseif ($params['type'] === 'withMany') {
-                $with = $this->table($params['external_table'])
+                if ($params['func']) {
+                    $qb = $params['func']($qb);
+                }
+                $with = $qb->get();
+
+            } elseif (in_array($params['type'], ['withOne', 'withMany'])) {
+                $qb = $this->table($params['external_table'])
                     ->select($params['external_table'] . '.*')
                     ->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder'])
-                    ->whereIn($params['external_table'] . '.' . $params['external_table_id'], array_column($result, $params['original_table_id']))
-                    ->get();
+                    ->whereIn($params['external_table'] . '.' . $params['external_table_id'], array_unique(array_column($result, $params['original_table_id'])));
+
+                if ($params['func']) {
+                    $qb = $params['func']($qb);
+                }
+                $with = $qb->get();
             }
 
             foreach ($result as &$item) {
@@ -388,7 +431,11 @@ class QueryBuilderHandler
                 foreach ($with as $val) {
                     if ($item[$params['original_table_id']] == $val['___placeholder']) {
                         unset($val['___placeholder']);
-                        $item[$params['name']][] = $val;
+                        if ($params['type'] === 'withOne') {
+                            $item[$params['name']] = $val;
+                        } else {
+                            $item[$params['name']][] = $val;
+                        }
                     }
                 }
             }
@@ -560,18 +607,19 @@ class QueryBuilderHandler
      */
     public function count()
     {
-        $this->withs = [];
-        $this->mapFunction = null;
+        $thisQB = clone $this;
+        $thisQB->withs = [];
+        $thisQB->mapFunction = null;
         
         // Get the current statements
-        $originalStatements = $this->statements;
+        $originalStatements = $thisQB->statements;
 
-        unset($this->statements['orderBys']);
-        unset($this->statements['limit']);
-        unset($this->statements['offset']);
+        unset($thisQB->statements['orderBys']);
+        unset($thisQB->statements['limit']);
+        unset($thisQB->statements['offset']);
 
-        $count = $this->aggregate('count');
-        $this->statements = $originalStatements;
+        $count = $thisQB->aggregate('count');
+        $thisQB->statements = $originalStatements;
 
         return $count;
     }
