@@ -76,11 +76,11 @@ class QueryBuilderHandler
     protected $dump = false;
 
     /**
-     * array_map() function that will be performed on result
+     * Set of closure functions that will perform array_map() on result one by one
      *
-     * @var \Closure|null
+     * @var array
      */
-    protected $mapFunction;
+    protected $mapFunctions = [];
 
     /**
      * @see $this->withMany() and $this->withManyVia()
@@ -238,7 +238,7 @@ class QueryBuilderHandler
      */
     public function map(\Closure $mapFunction)
     {
-        $this->mapFunction = $mapFunction;
+        $this->mapFunction[] = $mapFunction;
         return $this;
     }
 
@@ -455,8 +455,8 @@ class QueryBuilderHandler
      */
     protected function mapResults($result)
     {
-        if ($this->mapFunction instanceof \Closure) {
-            return array_map($this->mapFunction, $result);
+        foreach ($this->mapFunctions as $function) {
+            $result = array_map($function, $result);
         }
 
         return $result;
