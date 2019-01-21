@@ -1088,6 +1088,9 @@ class QueryBuilderHandler
      */
     public function whereIn($key, $values)
     {
+        if ($values === []) {
+            return $this->where($this->raw('1 = 2'));
+        }
         return $this->whereHandler($key, 'IN', $values, 'AND');
     }
 
@@ -1099,6 +1102,9 @@ class QueryBuilderHandler
      */
     public function whereNotIn($key, $values)
     {
+        if ($values === []) {
+            return $this;
+        }
         return $this->whereHandler($key, 'NOT IN', $values, 'AND');
     }
 
