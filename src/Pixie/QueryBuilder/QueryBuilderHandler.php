@@ -609,7 +609,7 @@ class QueryBuilderHandler
     {
         $thisQB = clone $this;
         $thisQB->withs = [];
-        $thisQB->mapFunction = null;
+        $thisQB->mapFunctions = [];
         
         // Get the current statements
         $originalStatements = $thisQB->statements;
