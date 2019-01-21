@@ -238,7 +238,7 @@ class QueryBuilderHandler
      */
     public function map(\Closure $mapFunction)
     {
-        $this->mapFunction[] = $mapFunction;
+        $this->mapFunctions[] = $mapFunction;
         return $this;
     }
 
