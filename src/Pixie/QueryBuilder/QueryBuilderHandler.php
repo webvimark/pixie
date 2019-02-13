@@ -508,6 +508,25 @@ class QueryBuilderHandler
     }
 
     /**
+     * Get items buy chunks - $rows and work with them - $function
+     * Iteration will stop if $function will return false
+     *
+     * @param int $indexField
+     * @param \Closure $valueField
+     */
+    public function chunk($rows, \Closure $function)
+    {
+        $i = 0;
+        while ($items = $this->limit($rows)->offset($rows * $i)->get()) {
+            $i++;
+            if ($function($items) === false) {
+                break;
+            }
+        }
+        $items = null;
+    }
+
+    /**
      * Get all rows. Wrapper for $this->getResult()
      *
      * @return array|\stdClass|null
