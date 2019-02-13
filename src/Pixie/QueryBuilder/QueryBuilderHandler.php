@@ -519,7 +519,7 @@ class QueryBuilderHandler
         $i = 0;
         while ($items = $this->limit($rows)->offset($rows * $i)->get()) {
             $i++;
-            if ($function($items) === false) {
+            if ($function($items, $i) === false) {
                 break;
             }
         }
