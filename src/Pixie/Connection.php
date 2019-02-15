@@ -82,7 +82,7 @@ class Connection
     /**
      * Create the connection adapter
      */
-    protected function connect()
+    public function connect()
     {
         // Build a database connection if we don't have one connected
 

@@ -7,6 +7,10 @@ use Pixie\Exception;
 
 class QueryBuilderHandler
 {
+    const RECONNECT_ATTEMPTS = 3;
+
+    protected $reconnect_attempt = 0;
+
     /**
      * @var \Viocon\Container
      */
@@ -183,16 +187,48 @@ class QueryBuilderHandler
     public function statement($sql, $bindings = array())
     {
         $start = microtime(true);
-        $pdoStatement = $this->pdo->prepare($sql);
-        foreach ($bindings as $key => $value) {
-            $pdoStatement->bindValue(
-                is_int($key) ? $key + 1 : $key,
-                $value,
-                is_int($value) || is_bool($value) ? PDO::PARAM_INT : PDO::PARAM_STR
-            );
-        }
-        $pdoStatement->execute();
+
+        $pdoStatement = $this->safeExecute($sql, $bindings);
+
         return array($pdoStatement, microtime(true) - $start);
+    }
+
+    /**
+     * Try to execute PDOStatement and reconnect to the server if timeout occurs
+     * Used by $this->statement()
+     *
+     * @param string $sql
+     * @param array $bindings
+     * @return \PDOStatement
+     */
+    protected function safeExecute($sql, $bindings)
+    {
+        try {
+            $pdoStatement = $this->pdo->prepare($sql);
+            foreach ($bindings as $key => $value) {
+                $pdoStatement->bindValue(
+                    is_int($key) ? $key + 1 : $key,
+                    $value,
+                    is_int($value) || is_bool($value) ? PDO::PARAM_INT : PDO::PARAM_STR
+                );
+            }
+
+            $pdoStatement->execute();
+
+            return $pdoStatement;
+        } catch (\PDOException $e) {
+            if (stripos($e->getMessage(), 'server has gone away') !== false) {
+                if ($this->reconnect_attempt++ < self::RECONNECT_ATTEMPTS) {
+                    $this->connection->connect();
+                    $this->pdo = $this->connection->getPdoInstance();
+                    $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+                    return $this->safeExecute($sql, $bindings);
+                }
+            }
+
+            throw $e;
+        }
     }
 
     /**
