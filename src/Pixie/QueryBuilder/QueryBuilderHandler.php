@@ -216,8 +216,16 @@ class QueryBuilderHandler
             $pdoStatement->execute();
 
             return $pdoStatement;
-        } catch (\PDOException $e) {
-            if (stripos($e->getMessage(), 'server has gone away') !== false) {
+        } catch (\Exception $e) {
+            $shouldTryToReconnect = false;
+            $errorMessages = ['server has gone away', 'Error while sending QUERY packet'];
+            foreach ($errorMessages as $errorMessage) {
+                if (stripos($e->getMessage(), $errorMessage) !== false) {
+                    $shouldTryToReconnect = true;
+                    break;
+                }
+            }
+            if ($shouldTryToReconnect) {
                 if ($this->reconnect_attempt++ < self::RECONNECT_ATTEMPTS) {
                     $this->connection->connect();
                     $this->pdo = $this->connection->getPdoInstance();
