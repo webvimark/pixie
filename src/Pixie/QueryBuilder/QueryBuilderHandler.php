@@ -505,7 +505,7 @@ class QueryBuilderHandler
 
         return $result;
     }
-
+  
     /**
      * Get 1-dimmenstional array with values from the first selected column
      *
@@ -514,6 +514,7 @@ class QueryBuilderHandler
     public function getColumn($select = null)
     {
         if ($select) {
+            unset($this->statements['selects']);
             $this->select($select);
         }
         return $this->setFetchMode(\PDO::FETCH_COLUMN)->get();
@@ -527,6 +528,7 @@ class QueryBuilderHandler
     public function getScalar($select = null)
     {
         if ($select) {
+            unset($this->statements['selects']);
             $this->select($select);
         }
         return $this->setFetchMode(\PDO::FETCH_COLUMN)->first();
@@ -541,6 +543,7 @@ class QueryBuilderHandler
      */
     public function pluck($indexField, $valueField)
     {
+        unset($this->statements['selects']);
         $items = $this->select([$indexField, $valueField])->get();
         $result = [];
         foreach ($items as $item) {
