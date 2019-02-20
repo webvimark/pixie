@@ -433,7 +433,7 @@ class QueryBuilderHandler
         ];
     }
 
-    /**
+     /**
      * Iterate over "withs" and add related datasets to the result
      *
      * @param array|null $result
@@ -446,28 +446,33 @@ class QueryBuilderHandler
         }
 
         foreach ($this->withs as $name => $params) {
-            if ($params['type'] === 'withManyVia') {
-                $qb = $this->table($params['external_table'])
-                    ->select($params['external_table'] . '.*')
-                    ->select([$params['via_table'] . '.' . $params['via_table_original_id'] => '___placeholder'])
-                    ->innerJoin($params['via_table'], $params['via_table'] . '.' . $params['via_table_external_id'], '=', $params['external_table'] . '.' . $params['external_table_id'])
-                    ->whereIn($params['via_table'] . '.' . $params['via_table_original_id'], array_unique(array_column($result, $params['original_table_id'])));
+            $originalTableResultIds = array_filter(array_unique(array_column($result, $params['original_table_id'])));
+            $with = [];
 
-                if ($params['func']) {
-                    $qb = $params['func']($qb);
+            if ($originalTableResultIds) {
+                if ($params['type'] === 'withManyVia') {
+                    $qb = $this->table($params['external_table'])
+                        ->select($params['external_table'] . '.*')
+                        ->select([$params['via_table'] . '.' . $params['via_table_original_id'] => '___placeholder'])
+                        ->innerJoin($params['via_table'], $params['via_table'] . '.' . $params['via_table_external_id'], '=', $params['external_table'] . '.' . $params['external_table_id'])
+                        ->whereIn($params['via_table'] . '.' . $params['via_table_original_id'], $originalTableResultIds);
+    
+                    if ($params['func']) {
+                        $qb = $params['func']($qb);
+                    }
+                    $with = $qb->get();
+    
+                } elseif (in_array($params['type'], ['withOne', 'withMany'])) {
+                    $qb = $this->table($params['external_table'])
+                        ->select($params['external_table'] . '.*')
+                        ->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder'])
+                        ->whereIn($params['external_table'] . '.' . $params['external_table_id'], $originalTableResultIds);
+    
+                    if ($params['func']) {
+                        $qb = $params['func']($qb);
+                    }
+                    $with = $qb->get();
                 }
-                $with = $qb->get();
-
-            } elseif (in_array($params['type'], ['withOne', 'withMany'])) {
-                $qb = $this->table($params['external_table'])
-                    ->select($params['external_table'] . '.*')
-                    ->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder'])
-                    ->whereIn($params['external_table'] . '.' . $params['external_table_id'], array_unique(array_column($result, $params['original_table_id'])));
-
-                if ($params['func']) {
-                    $qb = $params['func']($qb);
-                }
-                $with = $qb->get();
             }
 
             foreach ($result as &$item) {
@@ -483,9 +488,8 @@ class QueryBuilderHandler
                     }
                 }
             }
-
-            $with = null;
         }
+        $with = null;
 
         return $result;
     }
