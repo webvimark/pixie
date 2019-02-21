@@ -277,10 +277,10 @@ class QueryBuilderHandler
     /**
      * array_map() function that will be performed on result
      * 
-     * @param \Closure $mapFunction
+     * @param callable $mapFunction
      * @return $this
      */
-    public function map(\Closure $mapFunction)
+    public function map(callable $mapFunction)
     {
         $this->mapFunctions[] = $mapFunction;
         return $this;
@@ -289,7 +289,7 @@ class QueryBuilderHandler
     /**
      * Add 1-1 related data from "external_table"
      *
-     * @param null|\Closure $func
+     * @param null|callable $func
      * @param string $external_table
      * @param string $original_table_id
      * @param string $external_table_id
@@ -319,7 +319,7 @@ class QueryBuilderHandler
     /**
      * Add 1-N related data from "external_table"
      *
-     * @param null|\Closure $func
+     * @param null|callable $func
      * @param string $external_table
      * @param string $external_table_id
      * @param string $original_table_id
@@ -349,7 +349,7 @@ class QueryBuilderHandler
     /**
      * Add 1-N related data from "external_table" connnected from "via_table"
      *
-     * @param null|\Closure $func
+     * @param null|callable $func
      * @param string $external_table
      * @param string $via_table
      * @param string $via_table_original_id
@@ -563,9 +563,9 @@ class QueryBuilderHandler
      * Iteration will stop if $function will return false
      *
      * @param int $indexField
-     * @param \Closure $valueField
+     * @param callable $valueField
      */
-    public function chunk($rows, \Closure $function)
+    public function chunk($rows, callable $function)
     {
         $i = 0;
         while ($items = $this->limit($rows)->offset($rows * $i)->get()) {
@@ -1299,11 +1299,11 @@ class QueryBuilderHandler
     /**
      * Runs a transaction
      *
-     * @param $callback
+     * @param callable $callback
      *
      * @return $this
      */
-    public function transaction(\Closure $callback)
+    public function transaction(callable $callback)
     {
         try {
             // Begin the PDO transaction
