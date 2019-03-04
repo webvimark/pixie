@@ -348,6 +348,22 @@ class QueryBuilderHandler
 
     /**
      * Add 1-N related data from "external_table" connnected from "via_table"
+     * 
+     * For large datasets it's worth to set standalone index on $via_table -> $via_table_original_id
+     * and set this index name in $forceIndex.
+     * Example:
+     *      product <1 --- *> product_category <* -- 1> category
+     * 
+     * If you querying "product" want to get all "category" for product list.
+     *      ->withManyVia(
+     *          null, 'category', 'product_category', 'product_id', 
+     *          'category_id, 'id', 'id', null, 'product_id'
+     *      )
+     * Will give query like this:
+     * 
+     *      SELECT `category`.*, `product_category`.`product_id` AS `___placeholder` FROM `category` 
+     *      INNER JOIN `product_category` FORCE INDEX (`product_id`) ON `product_category`.`category_id` = `category`.`id` 
+    *       WHERE `product_category`.`product_id` IN ('1', '2', '3') 
      *
      * @param null|callable $func
      * @param string $external_table
@@ -357,6 +373,7 @@ class QueryBuilderHandler
      * @param string $external_table_id
      * @param string $original_table_id
      * @param string $name
+     * @param string $forceIndex
      * @return $this
      */
     public function withManyVia(
@@ -367,7 +384,8 @@ class QueryBuilderHandler
         $via_table_external_id,
         $external_table_id = 'id',
         $original_table_id = 'id',
-        $name = null
+        $name = null,
+        $forceIndex = null
     ) {
         if ($name === null) {
             $name = $external_table;
@@ -378,6 +396,7 @@ class QueryBuilderHandler
             compact(
                 'func',
                 'name',
+                'forceIndex',
                 'external_table',
                 'via_table',
                 'via_table_original_id',
@@ -433,7 +452,7 @@ class QueryBuilderHandler
         ];
     }
 
-     /**
+    /**
      * Iterate over "withs" and add related datasets to the result
      *
      * @param array|null $result
@@ -454,20 +473,34 @@ class QueryBuilderHandler
                     $qb = $this->table($params['external_table'])
                         ->select($params['external_table'] . '.*')
                         ->select([$params['via_table'] . '.' . $params['via_table_original_id'] => '___placeholder'])
-                        ->innerJoin($params['via_table'], $params['via_table'] . '.' . $params['via_table_external_id'], '=', $params['external_table'] . '.' . $params['external_table_id'])
                         ->whereIn($params['via_table'] . '.' . $params['via_table_original_id'], $originalTableResultIds);
-    
+
+                    if ($params['forceIndex']) {
+                        $qb->innerJoin(
+                            $this->raw("`{$params['via_table']}` FORCE INDEX (`{$params['forceIndex']}`)"),
+                            $params['via_table'] . '.' . $params['via_table_external_id'],
+                            '=',
+                            $params['external_table'] . '.' . $params['external_table_id']
+                        );
+                    } else {
+                        $qb->innerJoin(
+                            $params['via_table'],
+                            $params['via_table'] . '.' . $params['via_table_external_id'],
+                            '=',
+                            $params['external_table'] . '.' . $params['external_table_id']
+                        );
+                    }
+
                     if ($params['func']) {
                         $qb = $params['func']($qb);
                     }
                     $with = $qb->get();
-    
                 } elseif (in_array($params['type'], ['withOne', 'withMany'])) {
                     $qb = $this->table($params['external_table'])
                         ->select($params['external_table'] . '.*')
                         ->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder'])
                         ->whereIn($params['external_table'] . '.' . $params['external_table_id'], $originalTableResultIds);
-    
+
                     if ($params['func']) {
                         $qb = $params['func']($qb);
                     }
@@ -509,7 +542,7 @@ class QueryBuilderHandler
 
         return $result;
     }
-  
+
     /**
      * Get 1-dimmenstional array with values from the first selected column
      *
@@ -590,7 +623,7 @@ class QueryBuilderHandler
         }
 
         if ($this->cacheTtl > 0 && $this->cacheHandler) {
-            $cacheKey = $this->cacheKey ? : sha1($this->getQuery()->getRawSql());
+            $cacheKey = $this->cacheKey ?: sha1($this->getQuery()->getRawSql());
             $result = $this->cacheHandler->get($cacheKey);
 
             if ($result === false) {
@@ -680,7 +713,7 @@ class QueryBuilderHandler
         $thisQB = clone $this;
         $thisQB->withs = [];
         $thisQB->mapFunctions = [];
-        
+
         // Get the current statements
         $originalStatements = $thisQB->statements;
 
@@ -1514,7 +1547,7 @@ class QueryBuilderHandler
      */
     public function registerEvent($event, $table, \Closure $action)
     {
-        $table = $table ? : ':any';
+        $table = $table ?: ':any';
 
         if ($table != ':any') {
             $table = $this->addTablePrefix($table, false);
