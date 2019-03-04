@@ -488,8 +488,8 @@ class QueryBuilderHandler
                     $tmp = $qb->get();
 
                     $with = [];
-                    foreach ($tmp as $item) {
-                        $with[$item[$params['external_table_id']]] = $item;
+                    foreach ($tmp as $tmp_with) {
+                        $with[$tmp_with[$params['external_table_id']]] = $tmp_with;
                     }
 
                     $tmp = null;
@@ -509,7 +509,7 @@ class QueryBuilderHandler
             foreach ($result as &$item) {
                 $item[$params['name']] = [];
 
-                if (isset($withManyViaPlaceholder)) { // For withManyVia with select instead join
+                if ($params['type'] === 'withManyVia' && !$params['joinInsteadSelect']) {
                     foreach ($withManyViaPlaceholder as $tmp) {
                         if ($item[$params['original_table_id']] == $tmp['___placeholder']) {
                             if (isset($with[$tmp[$params['via_table_external_id']]])) {
