@@ -488,10 +488,18 @@ class QueryBuilderHandler
                     $tmp = $qb->get();
 
                     $with = [];
+                    $withManyViaSorted = [];
                     foreach ($tmp as $tmp_with) {
                         $with[$tmp_with[$params['external_table_id']]] = $tmp_with;
-                    }
 
+                        // Sort relation table records in correlation with external table
+                        foreach ($withManyViaPlaceholder as $tmp_withManyViaPl) {
+                            if ($tmp_withManyViaPl[$params['via_table_external_id']] == $tmp_with[$params['external_table_id']]) {
+                                $withManyViaSorted[] = $tmp_withManyViaPl;
+                            }
+                        }
+                    }
+                    $withManyViaPlaceholder = null;
                     $tmp = null;
                 } elseif (in_array($params['type'], ['withOne', 'withMany'])) {
                     $qb = $this->table($params['external_table'])
@@ -510,7 +518,7 @@ class QueryBuilderHandler
                 $item[$params['name']] = [];
 
                 if ($params['type'] === 'withManyVia' && !$params['joinInsteadSelect']) {
-                    foreach ($withManyViaPlaceholder as $tmp) {
+                    foreach ($withManyViaSorted as $tmp) {
                         if ($item[$params['original_table_id']] == $tmp['___placeholder']) {
                             if (isset($with[$tmp[$params['via_table_external_id']]])) {
                                 $item[$params['name']][] = $with[$tmp[$params['via_table_external_id']]];
