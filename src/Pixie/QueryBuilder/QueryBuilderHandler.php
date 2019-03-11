@@ -96,7 +96,8 @@ class QueryBuilderHandler
      * Assigned in $this->query()
      * [
      *      'sql' => '...', 
-     *      'bindings' => []
+     *      'bindings' => [],
+     *      'executionTime' => '',
      * ]
      *
      * @var array
@@ -200,9 +201,8 @@ class QueryBuilderHandler
      */
     public function query($sql, $bindings = array())
     {
-        list($this->pdoStatement) = $this->statement($sql, $bindings);
-
-        $this->_query = compact('sql', 'bindings');
+        list($this->pdoStatement, $executionTime) = $this->statement($sql, $bindings);
+        $this->_query = compact('sql', 'bindings', 'executionTime');
 
         return $this;
     }
@@ -731,6 +731,9 @@ class QueryBuilderHandler
         $start = microtime(true);
         $result = call_user_func_array(array($this->pdoStatement, 'fetchAll'), $this->fetchParameters);
         $executionTime += microtime(true) - $start;
+        if ($this->_query) {
+            $executionTime += $this->_query['executionTime'];
+        }
         $this->pdoStatement = null;
         $this->fireEvents('after-select', $result, $executionTime);
         return $result;
