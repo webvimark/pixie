@@ -93,6 +93,17 @@ class QueryBuilderHandler
     protected $withs = [];
 
     /**
+     * Assigned in $this->query()
+     * [
+     *      'sql' => '...', 
+     *      'bindings' => []
+     * ]
+     *
+     * @var array
+     */
+    protected $_query;
+
+    /**
      * @param null|\Pixie\Connection $connection
      *
      * @param int $fetchMode
@@ -166,6 +177,22 @@ class QueryBuilderHandler
     }
 
     /**
+     * Return prepared final SQL. For debug purposes only!
+     *
+     * @return string
+     */
+    public function getSql()
+    {
+        if ($this->_query) {
+            $queryObject = new QueryObject($this->_query['sql'], $this->_query['bindings'], $this->pdo);
+        } else {
+            $queryObject = $this->getQuery();
+        }
+
+        return $queryObject->getRawSql();
+    }
+
+    /**
      * @param       $sql
      * @param array $bindings
      *
@@ -174,6 +201,8 @@ class QueryBuilderHandler
     public function query($sql, $bindings = array())
     {
         list($this->pdoStatement) = $this->statement($sql, $bindings);
+
+        $this->_query = compact('sql', 'bindings');
 
         return $this;
     }
@@ -413,29 +442,51 @@ class QueryBuilderHandler
      * 
      * Respond with array containing following elements
      * [
-     *      'items' => [...], // array of results
      *      'total' => 183, // total records
      *      'perPage' => 20,
      *      'currentPage' => 5,
+     *      'items' => [...], // array of results
      * ]
      *
      * @param integer $currentPage
      * @param integer $perPage
+     * @param bool $lateLookup - https://stackoverflow.com/a/4502426 can give huge performance boost for relatively simple queries
      * @param false|int $preDefinedTotal - set some number if you do not want to execute "$this->count()"
      * @return array
      */
-    public function paginate($currentPage, $perPage = 20, $preDefinedTotal = false)
+    public function paginate($currentPage, $perPage = 20, $lateLookup = false, $preDefinedTotal = false)
     {
         $currentPage = (int)$currentPage >= 1 ? (int)$currentPage : 1;
         $perPage = (int)$perPage >= 1 ? (int)$perPage : 1;
 
         $this->limit($perPage)->offset(($currentPage - 1) * $perPage);
 
+        $total = is_numeric($preDefinedTotal) ? (int)abs($preDefinedTotal) : $this->count();
+
+        if ($lateLookup) {
+            $queryString = $this->getQuery()->getRawSql();
+            $subQuery = preg_replace('/^select (.*?) from/i', 'select id as __pagination_id_placehodler from', $queryString);
+
+            preg_match('/^select .* from (.*?) /i', $queryString, $matches);
+            $mainTable = '`' . trim($matches[1], '`') . '`';
+
+            preg_match('/^select (.*?) from /i', $queryString, $matches);
+            $mainSelect = $matches[0];
+
+            $sql = "{$mainSelect} ({$subQuery}) as __pagination_table_placehodler JOIN {$mainTable} "
+                . " ON {$mainTable}.id = __pagination_table_placehodler.__pagination_id_placehodler";
+
+            $this->statements = [];
+            $items = $this->query($sql)->get();
+        } else { 
+            $items = $this->get();
+        }
+
         return [
-            'items' => $this->get(),
             'perPage' => $perPage,
             'currentPage' => $currentPage,
-            'total' => is_numeric($preDefinedTotal) ? (int)abs($preDefinedTotal) : $this->count(),
+            'total' => $total,
+            'items' => $items,
         ];
     }
 
@@ -636,12 +687,12 @@ class QueryBuilderHandler
     public function get()
     {
         if ($this->dump) {
-            echo $this->getQuery()->getRawSql();
+            echo $this->getSql();
             die;
         }
 
         if ($this->cacheTtl > 0 && $this->cacheHandler) {
-            $cacheKey = $this->cacheKey ?: sha1($this->getQuery()->getRawSql());
+            $cacheKey = $this->cacheKey ?: sha1($this->getSql());
             $result = $this->cacheHandler->get($cacheKey);
 
             if ($result === false) {
