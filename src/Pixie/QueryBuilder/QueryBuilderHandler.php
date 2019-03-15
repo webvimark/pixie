@@ -478,7 +478,7 @@ class QueryBuilderHandler
 
             $this->statements = [];
             $items = $this->query($sql)->get();
-        } else { 
+        } else {
             $items = $this->get();
         }
 
@@ -1086,6 +1086,18 @@ class QueryBuilderHandler
     }
 
     /**
+     * @param string $sql
+     * @param array $bindings
+     * @return $this
+     */
+    public function selectRaw($sql, $bindings = [])
+    {
+        $fields = $this->addTablePrefix($this->raw($sql, $bindings));
+        $this->addStatement('selects', $fields);
+        return $this;
+    }
+
+    /**
      * @param $fields
      *
      * @return $this
@@ -1187,20 +1199,40 @@ class QueryBuilderHandler
     }
 
     /**
-     * @param $key
-     * @param $operator
-     * @param $value
+     * If $filtedMode is enabled, then only non-empty $values will be handled.
+     * Example:
+     *      $qb->where('some-field', '>', $_GET['param'], isset($_GET['param']))
+     * 
+     * @param string $key
+     * @param string $operator
+     * @param string $value
+     * @param boolean $filterMode
      *
      * @return $this
      */
-    public function where($key, $operator = null, $value = null)
+    public function where($key, $operator = null, $value = null, $filterMode = null)
     {
         // If two params are given then assume operator is =
         if (func_num_args() == 2) {
             $value = $operator;
             $operator = '=';
+        } elseif (func_num_args() == 4) {
+            if (!(bool)$filterMode) {
+                return $this;
+            }
         }
+
         return $this->whereHandler($key, $operator, $value);
+    }
+
+    /**
+     * @param string $sql
+     * @param array $bindings
+     * @return $this
+     */
+    public function whereRaw($sql, $bindings = [])
+    {
+        return $this->whereHandler($this->raw($sql, $bindings));
     }
 
     /**
