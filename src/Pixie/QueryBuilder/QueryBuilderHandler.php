@@ -793,7 +793,14 @@ class QueryBuilderHandler
         unset($thisQB->statements['limit']);
         unset($thisQB->statements['offset']);
 
-        $count = $thisQB->aggregate('count');
+        if (isset($thisQB->statements['groupBys']) || isset($thisQB->statements['havings'])) {
+            $count = $thisQB
+                ->query('SELECT COUNT(*) as cnt FROM (' . $thisQB->getSql() . ') as cnt_table')
+                ->getScalar('cnt');
+        } else {
+            $count = $thisQB->aggregate('count');
+        }
+
         $thisQB->statements = $originalStatements;
 
         return $count;
