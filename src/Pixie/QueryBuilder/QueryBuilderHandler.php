@@ -450,7 +450,9 @@ class QueryBuilderHandler
      *
      * @param integer $currentPage
      * @param integer $perPage
-     * @param bool $lateLookup - https://stackoverflow.com/a/4502426 can give huge performance boost for relatively simple queries
+     * @param bool|string $lateLookup - https://stackoverflow.com/a/4502426 can give 
+     * huge performance boost for relatively simple queries. Use "true" if main table primary key is "id"
+     * or primary key field name like "uuid"
      * @param false|int $preDefinedTotal - set some number if you do not want to execute "$this->count()"
      * @return array
      */
@@ -464,8 +466,9 @@ class QueryBuilderHandler
         $total = is_numeric($preDefinedTotal) ? (int)abs($preDefinedTotal) : $this->count();
 
         if ($lateLookup) {
+            $lateLookup = is_bool($lateLookup) ? 'id' : $lateLookup;
             $queryString = $this->getQuery()->getRawSql();
-            $subQuery = preg_replace('/^select (.*?) from/i', 'select id as __pagination_id_placehodler from', $queryString);
+            $subQuery = preg_replace('/^select (.*?) from/i', "select {$lateLookup} as __pagination_id_placehodler from", $queryString);
 
             preg_match('/^select .* from (.*?) /i', $queryString, $matches);
             $mainTable = '`' . trim($matches[1], '`') . '`';
@@ -474,7 +477,7 @@ class QueryBuilderHandler
             $mainSelect = $matches[0];
 
             $sql = "{$mainSelect} ({$subQuery}) as __pagination_table_placehodler JOIN {$mainTable} "
-                . " ON {$mainTable}.id = __pagination_table_placehodler.__pagination_id_placehodler";
+                . " ON {$mainTable}.{$lateLookup} = __pagination_table_placehodler.__pagination_id_placehodler";
 
             $this->statements = [];
             $items = $this->query($sql)->get();
