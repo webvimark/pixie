@@ -1,4 +1,4 @@
-<?php 
+<?php
 namespace Pixie\QueryBuilder;
 
 use PDO;
@@ -1206,6 +1206,35 @@ class QueryBuilderHandler
     public function orHaving($key, $operator, $value)
     {
         return $this->having($key, $operator, $value, 'OR');
+    }
+
+    /**
+     * Allow easy apply filters, e.g. for $_GET data.
+     * $operator = 'like' automatically surrounds value with "%"
+     * Example:
+     *      $qb->filter(['town', 'country']);
+     *      $qb->filter(['username', 'email'], 'like');
+     *      $qb->filter(['age'], '>', $_POST);
+     *
+     * @param array $keys
+     * @param string $operator
+     * @param array $data - used $_GET by default
+     * @return $this
+     */
+    public function filter(array $keys, $operator = '=', array $data = [])
+    {
+        if (!$data) {
+            $data = $_GET;
+        }
+
+        foreach ($keys as $key) {
+            if (isset($data[$key]) && trim($data[$key]) !== '') {
+                $value = strtolower($operator) === 'like' ? '%' . trim($data[$key]) . '%' : trim($data[$key]);
+                $this->whereHandler($key, $operator, $value);
+            }
+        }
+
+        return $this;
     }
 
     /**
