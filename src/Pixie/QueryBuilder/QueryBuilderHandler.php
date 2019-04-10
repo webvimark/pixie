@@ -436,7 +436,7 @@ class QueryBuilderHandler
         $this->dump = $dump;
         return $this;
     }
-
+   
     /**
      * Note - be careful with the left and right joins (because they can add more rows)
      * 
@@ -453,31 +453,38 @@ class QueryBuilderHandler
      * @param bool|string $lateLookup - https://stackoverflow.com/a/4502426 can give 
      * huge performance boost for relatively simple queries. Use "true" if main table primary key is "id"
      * or primary key field name like "uuid"
-     * @param false|int $preDefinedTotal - set some number if you do not want to execute "$this->count()"
+     * @param bool $doNotCountTotal - if true, then "total" => -1
      * @return array
      */
-    public function paginate($currentPage, $perPage = 20, $lateLookup = false, $preDefinedTotal = false)
+    public function paginate($currentPage, $perPage = 20, $lateLookup = false, $doNotCountTotal = false)
     {
         $currentPage = (int)$currentPage >= 1 ? (int)$currentPage : 1;
         $perPage = (int)$perPage >= 1 ? (int)$perPage : 1;
 
         $this->limit($perPage)->offset(($currentPage - 1) * $perPage);
 
-        $total = is_numeric($preDefinedTotal) ? (int)abs($preDefinedTotal) : $this->count();
+        $total = $doNotCountTotal ? -1 : $this->count();
 
         if ($lateLookup) {
             $lateLookup = is_bool($lateLookup) ? 'id' : $lateLookup;
             $queryString = $this->getQuery()->getRawSql();
-            $subQuery = preg_replace('/^select (.*?) from/i', "select {$lateLookup} as __pagination_id_placehodler from", $queryString);
+            $mainTable = $this->statements['tables'][0];
 
-            preg_match('/^select .* from (.*?) /i', $queryString, $matches);
-            $mainTable = '`' . trim($matches[1], '`') . '`';
+            $subQuery = preg_replace(
+                '/^select (.*?) from(\s+)(`?)' . $mainTable . '(`?)(\s+)/i',
+                "select {$lateLookup} as __pagination_id_placehodler from `{$mainTable}` ",
+                $queryString
+            );
 
-            preg_match('/^select (.*?) from /i', $queryString, $matches);
-            $mainSelect = $matches[0];
+            preg_match(
+                '/^select (.*?) from(\s+)(`?)' . $mainTable . '(`?)(\s+)/i',
+                $queryString,
+                $matches
+            );
+            $mainSelect = $matches[1];
 
-            $sql = "{$mainSelect} ({$subQuery}) as __pagination_table_placehodler JOIN {$mainTable} "
-                . " ON {$mainTable}.{$lateLookup} = __pagination_table_placehodler.__pagination_id_placehodler";
+            $sql = "SELECT {$mainSelect} FROM ({$subQuery}) as __pagination_table_placehodler JOIN `{$mainTable}` "
+                . " ON `{$mainTable}`.{$lateLookup} = __pagination_table_placehodler.__pagination_id_placehodler";
 
             $this->statements = [];
             $items = $this->query($sql)->get();
