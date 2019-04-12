@@ -436,7 +436,7 @@ class QueryBuilderHandler
         $this->dump = $dump;
         return $this;
     }
-   
+
     /**
      * Note - be careful with the left and right joins (because they can add more rows)
      * 
@@ -453,17 +453,24 @@ class QueryBuilderHandler
      * @param bool|string $lateLookup - https://stackoverflow.com/a/4502426 can give 
      * huge performance boost for relatively simple queries. Use "true" if main table primary key is "id"
      * or primary key field name like "uuid"
-     * @param bool $doNotCountTotal - if true, then "total" => -1
+     * @param bool|int $preDefinedTotal - with "false" - count records in DB, with "true" - do not count 
+     * and return "total" => -1, with number - return that number
      * @return array
      */
-    public function paginate($currentPage, $perPage = 20, $lateLookup = false, $doNotCountTotal = false)
+    public function paginate($currentPage, $perPage = 20, $lateLookup = false, $preDefinedTotal = false)
     {
         $currentPage = (int)$currentPage >= 1 ? (int)$currentPage : 1;
         $perPage = (int)$perPage >= 1 ? (int)$perPage : 1;
 
         $this->limit($perPage)->offset(($currentPage - 1) * $perPage);
 
-        $total = $doNotCountTotal ? -1 : $this->count();
+        if ($preDefinedTotal === true) {
+            $total = -1;
+        } elseif ($preDefinedTotal === false) {
+            $total = $this->count();
+         } else {
+            $total = $preDefinedTotal;
+        }
 
         if ($lateLookup) {
             $lateLookup = is_bool($lateLookup) ? 'id' : $lateLookup;
