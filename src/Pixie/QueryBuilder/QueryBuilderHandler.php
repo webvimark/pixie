@@ -450,9 +450,9 @@ class QueryBuilderHandler
      *
      * @param integer $currentPage
      * @param integer $perPage
-     * @param bool|string $lateLookup - https://stackoverflow.com/a/4502426 can give 
+     * @param bool|string|array $lateLookup - https://stackoverflow.com/a/4502426 can give 
      * huge performance boost for relatively simple queries. Use "true" if main table primary key is "id"
-     * or primary key field name like "uuid"
+     * or primary key field name like "uuid", or pass an array ['id_field_name', 'table_name']
      * @param bool|int $preDefinedTotal - with "false" - count records in DB, with "true" - do not count 
      * and return "total" => -1, with number - return that number
      * @return array
@@ -473,9 +473,16 @@ class QueryBuilderHandler
         }
 
         if ($lateLookup) {
-            $lateLookup = is_bool($lateLookup) ? 'id' : $lateLookup;
-            $queryString = $this->getQuery()->getRawSql();
             $mainTable = $this->statements['tables'][0];
+
+            if (is_array($lateLookup)) {
+                $mainTable = $lateLookup[1];
+                $lateLookup = $lateLookup[0];
+            } elseif ($lateLookup === true) {
+                $lateLookup = 'id';
+            }
+            
+            $queryString = $this->getQuery()->getRawSql();
 
             $subQuery = preg_replace(
                 '/^select (.*?) from(\s+)(`?)' . $mainTable . '(`?)(\s+)/i',
