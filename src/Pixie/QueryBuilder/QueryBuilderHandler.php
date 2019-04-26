@@ -512,8 +512,13 @@ class QueryBuilderHandler
             $sql = "SELECT {$mainSelect} FROM ({$subQuery}) as __pagination_table_placehodler JOIN `{$mainTable}` "
                 . " ON `{$mainTable}`.{$lateLookup} = __pagination_table_placehodler.__pagination_id_placehodler";
 
+            $tmp = $this->statements;
             $this->statements = [];
+
             $items = $this->query($sql)->get();
+            
+            $this->statements = $tmp;
+            $tmp = null;
         } else {
             $items = $this->get();
         }
@@ -689,16 +694,19 @@ class QueryBuilderHandler
      *
      * @param int $indexField
      * @param callable $valueField
+     * @param bool|string|array $lateLookup - https://stackoverflow.com/a/4502426 can give 
+     * huge performance boost for relatively simple queries. Use "true" if main table primary key is "id"
+     * or primary key field name like "uuid", or pass an array ['id_field_name', 'table_name']
      */
-    public function chunk($rows, callable $function)
+    public function chunk($rows, callable $function, $lateLookup = false)
     {
         $i = 0;
-        while ($items = $this->limit($rows)->offset($rows * $i)->get()) {
-            $i++;
+        while ($items = $this->paginate(++$i, $rows, $lateLookup, true)['items']) {
             if ($function($items, $i) === false) {
                 break;
             }
         }
+        
         $items = null;
     }
 
