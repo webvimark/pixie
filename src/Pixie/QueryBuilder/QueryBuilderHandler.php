@@ -323,10 +323,18 @@ class QueryBuilderHandler
      * @param string $original_table_id
      * @param string $external_table_id
      * @param string $name
+     * @param int $chunk_size - Example: with 100 records from original table and $chunk_size = 20
+     * there will be 5 queries to the external table. Used to prevent using "whereIn()" with too many ids
      * @return $this
      */
-    public function withOne($func, $external_table, $original_table_id, $external_table_id = 'id', $name = null)
-    {
+    public function withOne(
+        $func,
+        $external_table,
+        $original_table_id,
+        $external_table_id = 'id',
+        $name = null,
+        $chunk_size = 1000
+    ) {
         if ($name === null) {
             $name = $external_table;
         }
@@ -336,6 +344,7 @@ class QueryBuilderHandler
             compact(
                 'func',
                 'name',
+                'chunk_size',
                 'external_table',
                 'external_table_id',
                 'original_table_id'
@@ -353,10 +362,18 @@ class QueryBuilderHandler
      * @param string $external_table_id
      * @param string $original_table_id
      * @param string $name
+     * @param int $chunk_size - Example: with 100 records from original table and $chunk_size = 20
+     * there will be 5 queries to the external table. Used to prevent using "whereIn()" with too many ids
      * @return $this
      */
-    public function withMany($func, $external_table, $external_table_id, $original_table_id = 'id', $name = null)
-    {
+    public function withMany(
+        $func,
+        $external_table,
+        $external_table_id,
+        $original_table_id = 'id',
+        $name = null,
+        $chunk_size = 1000
+    ) {
         if ($name === null) {
             $name = $external_table;
         }
@@ -366,6 +383,7 @@ class QueryBuilderHandler
             compact(
                 'func',
                 'name',
+                'chunk_size',
                 'external_table',
                 'external_table_id',
                 'original_table_id'
@@ -558,15 +576,17 @@ class QueryBuilderHandler
                     $withManyViaPlaceholder = null;
                     $tmp = null;
                 } elseif (in_array($params['type'], ['withOne', 'withMany'])) {
-                    $qb = $this->table($params['external_table'])
-                        ->select($params['external_table'] . '.*')
-                        ->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder'])
-                        ->whereIn($params['external_table'] . '.' . $params['external_table_id'], $originalTableResultIds);
+                    foreach (array_chunk($originalTableResultIds, $params['chunk_size']) as $chunkIds) {
+                        $qb = $this->table($params['external_table'])
+                            ->select($params['external_table'] . '.*')
+                            ->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder'])
+                            ->whereIn($params['external_table'] . '.' . $params['external_table_id'], $chunkIds);
 
-                    if ($params['func']) {
-                        $qb = $params['func']($qb);
+                        if ($params['func']) {
+                            $qb = $params['func']($qb);
+                        }
+                        $with = array_merge($with, $qb->get());
                     }
-                    $with = $qb->get();
                 }
             }
 
