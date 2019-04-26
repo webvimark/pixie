@@ -673,15 +673,11 @@ class QueryBuilderHandler
      */
     public function pluck($indexField, $valueField)
     {
-        unset($this->statements['selects']);
-        $items = $this->select([$indexField, $valueField])->get();
-        $result = [];
-        foreach ($items as $item) {
-            $result[$item[$indexField]] = $item[$valueField];
+        if (!isset($this->statements['selects'])) {
+            $this->select([$indexField, $valueField]);
         }
-        $items = null;
 
-        return $result;
+        return array_column($this->get(), $valueField, $indexField);
     }
 
     /**
@@ -711,7 +707,7 @@ class QueryBuilderHandler
     public function get()
     {
         if ($this->dump) {
-            echo $this->getSql();
+            echo $this->getSql() . PHP_EOL;
             die;
         }
 
