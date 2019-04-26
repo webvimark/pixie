@@ -377,9 +377,6 @@ class QueryBuilderHandler
 
     /**
      * Add 1-N related data from "external_table" connnected from "via_table"
-     * 
-     * By default we execute 2 additional quries instead 1 additional query with inner join
-     * you can change it with $joinInsteadSelect param
      *
      * @param null|callable $func
      * @param string $external_table
@@ -389,7 +386,6 @@ class QueryBuilderHandler
      * @param string $external_table_id
      * @param string $original_table_id
      * @param string $name
-     * @param bool $joinInsteadSelect
      * @return $this
      */
     public function withManyVia(
@@ -400,8 +396,7 @@ class QueryBuilderHandler
         $via_table_external_id,
         $external_table_id = 'id',
         $original_table_id = 'id',
-        $name = null,
-        $joinInsteadSelect = false
+        $name = null
     ) {
         if ($name === null) {
             $name = $external_table;
@@ -412,7 +407,6 @@ class QueryBuilderHandler
             compact(
                 'func',
                 'name',
-                'joinInsteadSelect',
                 'external_table',
                 'via_table',
                 'via_table_original_id',
@@ -468,7 +462,7 @@ class QueryBuilderHandler
             $total = -1;
         } elseif ($preDefinedTotal === false) {
             $total = $this->count();
-         } else {
+        } else {
             $total = $preDefinedTotal;
         }
 
@@ -481,7 +475,7 @@ class QueryBuilderHandler
             } elseif ($lateLookup === true) {
                 $lateLookup = 'id';
             }
-            
+
             $queryString = $this->getQuery()->getRawSql();
 
             $subQuery = preg_replace(
@@ -532,30 +526,17 @@ class QueryBuilderHandler
 
             if ($originalTableResultIds) {
                 if ($params['type'] === 'withManyVia') {
-                    if ($params['joinInsteadSelect']) {
-                        $qb = $this->table($params['external_table'])
-                            ->innerJoin(
-                                $params['via_table'],
-                                $params['via_table'] . '.' . $params['via_table_external_id'],
-                                '=',
-                                $params['external_table'] . '.' . $params['external_table_id']
-                            )
-                            ->select($params['external_table'] . '.*')
-                            ->select([$params['via_table'] . '.' . $params['via_table_original_id'] => '___placeholder'])
-                            ->whereIn($params['via_table'] . '.' . $params['via_table_original_id'], $originalTableResultIds);
-                    } else {
-                        $withManyViaPlaceholder = $this->table($params['via_table'])
-                            ->select($params['via_table'] . '.' . $params['via_table_external_id'])
-                            ->select([$params['via_table'] . '.' . $params['via_table_original_id'] => '___placeholder'])
-                            ->whereIn($params['via_table_original_id'], $originalTableResultIds)
-                            ->get();
+                    $withManyViaPlaceholder = $this->table($params['via_table'])
+                        ->select($params['via_table'] . '.' . $params['via_table_external_id'])
+                        ->select([$params['via_table'] . '.' . $params['via_table_original_id'] => '___placeholder'])
+                        ->whereIn($params['via_table_original_id'], $originalTableResultIds)
+                        ->get();
 
-                        $qb = $this->table($params['external_table'])
-                            ->whereIn(
-                                $params['external_table_id'],
-                                array_unique(array_column($withManyViaPlaceholder, $params['via_table_external_id']))
-                            );
-                    }
+                    $qb = $this->table($params['external_table'])
+                        ->whereIn(
+                            $params['external_table_id'],
+                            array_unique(array_column($withManyViaPlaceholder, $params['via_table_external_id']))
+                        );
 
                     if ($params['func']) {
                         $qb = $params['func']($qb);
@@ -592,7 +573,7 @@ class QueryBuilderHandler
             foreach ($result as &$item) {
                 $item[$params['name']] = [];
 
-                if ($params['type'] === 'withManyVia' && !$params['joinInsteadSelect']) {
+                if ($params['type'] === 'withManyVia') {
                     foreach ($withManyViaSorted as $tmp) {
                         if ($item[$params['original_table_id']] == $tmp['___placeholder']) {
                             if (isset($with[$tmp[$params['via_table_external_id']]])) {
