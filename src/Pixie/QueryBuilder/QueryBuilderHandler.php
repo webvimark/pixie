@@ -590,26 +590,28 @@ class QueryBuilderHandler
                 }
             }
 
-            foreach ($result as &$item) {
+            $resultIndexMap = [];
+            foreach ($result as $index => &$item) {
                 $item[$params['name']] = [];
+                $resultIndexMap[$item[$params['original_table_id']]][] = $index;
+            }
 
-                if ($params['type'] === 'withManyVia') {
-                    foreach ($withManyViaSorted as $tmp) {
-                        if ($item[$params['original_table_id']] == $tmp['___placeholder']) {
-                            if (isset($with[$tmp[$params['via_table_external_id']]])) {
-                                $item[$params['name']][] = $with[$tmp[$params['via_table_external_id']]];
-                            }
-                        }
+            if ($params['type'] === 'withManyVia') {
+                foreach ($withManyViaSorted as $tmp) {
+                    if (isset($with[$tmp[$params['via_table_external_id']]])) {
+                        $result[$index][$params['name']][] = $with[$tmp[$params['via_table_external_id']]];
                     }
-                } else {
-                    foreach ($with as $val) {
-                        if ($item[$params['original_table_id']] == $val['___placeholder']) {
-                            unset($val['___placeholder']);
-                            if ($params['type'] === 'withOne') {
-                                $item[$params['name']] = $val;
-                            } else {
-                                $item[$params['name']][] = $val;
-                            }
+                }
+            } else {
+                foreach ($with as $val) {
+                    $original_table_id = $val['___placeholder'];
+                    unset($val['___placeholder']);
+
+                    foreach ($resultIndexMap[$original_table_id] as $index) {
+                        if ($params['type'] === 'withOne') {
+                            $result[$index][$params['name']] = $val;
+                        } else {
+                            $result[$index][$params['name']][] = $val;
                         }
                     }
                 }
