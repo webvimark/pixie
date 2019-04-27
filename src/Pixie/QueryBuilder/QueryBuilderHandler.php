@@ -323,8 +323,11 @@ class QueryBuilderHandler
      * @param string $original_table_id
      * @param string $external_table_id
      * @param string $name
-     * @param int $chunk_size - Example: with 100 records from original table and $chunk_size = 20
+     * @param int|false $chunk_size - Example: with 100 records from original table and $chunk_size = 20
      * there will be 5 queries to the external table. Used to prevent using "whereIn()" with too many ids
+     * If $chunk_size is "false" then subQuery will be used (e.g. main table will be 
+     * queried twice) - useful when your main query is fast and you are retrieving more than 10.000 rows
+     * 
      * @return $this
      */
     public function withOne(
@@ -362,8 +365,11 @@ class QueryBuilderHandler
      * @param string $external_table_id
      * @param string $original_table_id
      * @param string $name
-     * @param int $chunk_size - Example: with 100 records from original table and $chunk_size = 20
+     * @param int|false $chunk_size - Example: with 100 records from original table and $chunk_size = 20
      * there will be 5 queries to the external table. Used to prevent using "whereIn()" with too many ids
+     * If $chunk_size is "false" then subQuery will be used (e.g. main table will be 
+     * queried twice) - useful when your main query is fast and you are retrieving more than 10.000 rows
+     * 
      * @return $this
      */
     public function withMany(
@@ -404,6 +410,9 @@ class QueryBuilderHandler
      * @param string $external_table_id
      * @param string $original_table_id
      * @param string $name
+     * @param int $chunk_size - Example: with 100 records from original table and $chunk_size = 20
+     * there will be 5 queries to the external table. Used to prevent using "whereIn()" with too many ids
+     * 
      * @return $this
      */
     public function withManyVia(
@@ -414,7 +423,8 @@ class QueryBuilderHandler
         $via_table_external_id,
         $external_table_id = 'id',
         $original_table_id = 'id',
-        $name = null
+        $name = null,
+        $chunk_size = 1000
     ) {
         if ($name === null) {
             $name = $external_table;
@@ -425,6 +435,7 @@ class QueryBuilderHandler
             compact(
                 'func',
                 'name',
+                'chunk_size',
                 'external_table',
                 'via_table',
                 'via_table_original_id',
@@ -516,7 +527,7 @@ class QueryBuilderHandler
             $this->statements = [];
 
             $items = $this->query($sql)->get();
-            
+
             $this->statements = $tmp;
             $tmp = null;
         } else {
@@ -543,89 +554,172 @@ class QueryBuilderHandler
             return $result;
         }
 
-        foreach ($this->withs as $name => $params) {
-            $originalTableResultIds = array_filter(array_unique(array_column($result, $params['original_table_id'])));
-            $with = [];
-
-            if ($originalTableResultIds) {
-                if ($params['type'] === 'withManyVia') {
-                    $withManyViaPlaceholder = $this->table($params['via_table'])
-                        ->select($params['via_table'] . '.' . $params['via_table_external_id'])
-                        ->select([$params['via_table'] . '.' . $params['via_table_original_id'] => '___placeholder'])
-                        ->whereIn($params['via_table_original_id'], $originalTableResultIds)
-                        ->get();
-
-                    $qb = $this->table($params['external_table'])
-                        ->whereIn(
-                            $params['external_table_id'],
-                            array_unique(array_column($withManyViaPlaceholder, $params['via_table_external_id']))
-                        );
-
-                    if ($params['func']) {
-                        $qb = $params['func']($qb);
-                    }
-                    $tmp = $qb->get();
-
-                    $with = [];
-                    $withManyViaSorted = [];
-                    foreach ($tmp as $tmp_with) {
-                        $with[$tmp_with[$params['external_table_id']]] = $tmp_with;
-
-                        // Sort relation table records in correlation with external table
-                        foreach ($withManyViaPlaceholder as $tmp_withManyViaPl) {
-                            if ($tmp_withManyViaPl[$params['via_table_external_id']] == $tmp_with[$params['external_table_id']]) {
-                                $withManyViaSorted[] = $tmp_withManyViaPl;
-                            }
-                        }
-                    }
-                    $withManyViaPlaceholder = null;
-                    $tmp = null;
-                } elseif (in_array($params['type'], ['withOne', 'withMany'])) {
-                    foreach (array_chunk($originalTableResultIds, $params['chunk_size']) as $chunkIds) {
-                        $qb = $this->table($params['external_table'])
-                            ->select($params['external_table'] . '.*')
-                            ->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder'])
-                            ->whereIn($params['external_table'] . '.' . $params['external_table_id'], $chunkIds);
-
-                        if ($params['func']) {
-                            $qb = $params['func']($qb);
-                        }
-                        $with = array_merge($with, $qb->get());
-                    }
-                }
-            }
-
-            $resultIndexMap = [];
-            foreach ($result as $index => &$item) {
+        $resultIndexMap = [];
+        foreach ($result as $index => &$item) {
+            foreach ($this->withs as $params) {
                 $item[$params['name']] = [];
-                $resultIndexMap[$item[$params['original_table_id']]][] = $index;
-            }
-
-            if ($params['type'] === 'withManyVia') {
-                foreach ($withManyViaSorted as $tmp) {
-                    if (isset($with[$tmp[$params['via_table_external_id']]])) {
-                        $result[$index][$params['name']][] = $with[$tmp[$params['via_table_external_id']]];
-                    }
-                }
-            } else {
-                foreach ($with as $val) {
-                    $original_table_id = $val['___placeholder'];
-                    unset($val['___placeholder']);
-
-                    foreach ($resultIndexMap[$original_table_id] as $index) {
-                        if ($params['type'] === 'withOne') {
-                            $result[$index][$params['name']] = $val;
-                        } else {
-                            $result[$index][$params['name']][] = $val;
-                        }
-                    }
+                if (!in_array($item[$params['original_table_id']], ['', null])) {
+                    $resultIndexMap[$params['original_table_id']][$item[$params['original_table_id']]][$index] = $index;
                 }
             }
         }
-        $with = null;
-        $withManyViaPlaceholder = null;
+
+        foreach ($this->withs as $params) {
+            if ($params['type'] === 'withManyVia') {
+                $this->_performWithHelper_withManyVia($params, $resultIndexMap, $result);
+            } elseif (in_array($params['type'], ['withOne', 'withMany'])) {
+                $this->_performWithHelper_withMany($params, $resultIndexMap, $result);
+            }
+        }
+
+        $resultIndexMap = null;
 
         return $result;
+    }
+
+    /**
+     * Helper for performWith()
+     *
+     * @param array $params
+     * @param array $resultIndexMap
+     * @param array $result
+     */
+    protected function _performWithHelper_withManyVia($params, $resultIndexMap, &$result)
+    {
+        $originalTableResultIds = array_keys($resultIndexMap[$params['original_table_id']]);
+
+        $viaTableData = [];
+        foreach (array_chunk($originalTableResultIds, $params['chunk_size']) as $chunkIds) {
+            $tmp = $this->table($params['via_table'])
+                ->select([
+                    $params['via_table'] . '.' . $params['via_table_external_id'],
+                    $params['via_table'] . '.' . $params['via_table_original_id'],
+                ])
+                ->whereIn($params['via_table_original_id'], $chunkIds)
+                ->get();
+
+            $viaTableData = array_merge($viaTableData, $tmp);
+            $tmp = null;
+        }
+
+        $externalData = [];
+        $viaExternalIds = array_unique(array_column($viaTableData, $params['via_table_external_id']));
+        foreach (array_chunk($viaExternalIds, $params['chunk_size']) as $chunkIds) {
+            $qb = $this->table($params['external_table'])
+                ->whereIn(
+                    $params['external_table_id'],
+                    $chunkIds
+                );
+
+            if ($params['func']) {
+                $params['func']($qb);
+            }
+
+            if (empty($qb->getStatements()['selects'])) {
+                $qb->select($params['external_table'] . '.*');
+            }
+            $qb->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder']);
+
+            $externalData = array_merge($externalData, $qb->get());
+        }
+
+        $externalDataMap = [];
+        foreach ($externalData as $value) {
+            $external_table_id = $value['___placeholder'];
+            unset($value['___placeholder']);
+            $externalDataMap[$external_table_id][] = $value;
+        }
+
+        foreach ($viaTableData as $viaVal) {
+            if (isset($externalDataMap[$viaVal[$params['via_table_external_id']]])) {
+                foreach ($resultIndexMap[$params['original_table_id']][$viaVal[$params['via_table_original_id']]] as $index) {
+                    $result[$index][$params['name']] = array_merge(
+                        $result[$index][$params['name']],
+                        $externalDataMap[$viaVal[$params['via_table_external_id']]]
+                    );
+                }
+            }
+        }
+
+        $externalData = null;
+        $viaTableData = null;
+        $externalDataMap = null;
+        $originalTableResultIds = null;
+        $resultIndexMap = null;
+    }
+
+    /**
+     * Helper for performWith()
+     *
+     * @param array $params
+     * @param array $resultIndexMap
+     * @param array $result
+     */
+    protected function _performWithHelper_withMany($params, $resultIndexMap, &$result)
+    {
+        if ($params['chunk_size'] === false) {
+            $tmp = $this->statements;
+            unset($this->statements['selects']);
+
+            $this->select($params['original_table_id']);
+            $sql = $this->getSql();
+
+            $this->statements = $tmp;
+            $tmp = null;
+
+            $qb = $this->table($params['external_table'])
+                ->whereRaw('`' . $params['external_table'] . '`.`' . $params['external_table_id']
+                    . '` IN (SELECT * FROM (' . $sql . ') __plchl_tmp_tbl)');
+
+            if ($params['func']) {
+                $params['func']($qb);
+            }
+
+            if (empty($qb->getStatements()['selects'])) {
+                $qb->select($params['external_table'] . '.*');
+            }
+
+            $qb->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder']);
+
+            $externalData = $qb->get();
+        } else {
+            $externalData = [];
+            $originalTableResultIds = array_keys($resultIndexMap[$params['original_table_id']]);
+
+            foreach (array_chunk($originalTableResultIds, $params['chunk_size']) as $chunkIds) {
+                $qb = $this->table($params['external_table'])
+                    ->whereIn($params['external_table'] . '.' . $params['external_table_id'], $chunkIds);
+
+                if ($params['func']) {
+                    $params['func']($qb);
+                }
+
+                if (empty($qb->getStatements()['selects'])) {
+                    $qb->select($params['external_table'] . '.*');
+                }
+
+                $qb->select([$params['external_table'] . '.' . $params['external_table_id'] => '___placeholder']);
+
+                $externalData = array_merge($externalData, $qb->get());
+            }
+        }
+
+        foreach ($externalData as $val) {
+            $original_table_id = $val['___placeholder'];
+            unset($val['___placeholder']);
+
+            foreach ($resultIndexMap[$params['original_table_id']][$original_table_id] as $index) {
+                if ($params['type'] === 'withOne') {
+                    $result[$index][$params['name']] = $val;
+                } else {
+                    $result[$index][$params['name']][] = $val;
+                }
+            }
+        }
+
+        $externalData = null;
+        $originalTableResultIds = null;
+        $resultIndexMap = null;
     }
 
     /**
@@ -706,7 +800,7 @@ class QueryBuilderHandler
                 break;
             }
         }
-        
+
         $items = null;
     }
 
@@ -718,7 +812,7 @@ class QueryBuilderHandler
     public function get()
     {
         if ($this->dump) {
-            echo $this->getSql() . PHP_EOL;
+            echo $this->getSql() . PHP_EOL . PHP_EOL;
             die;
         }
 
