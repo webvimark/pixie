@@ -587,8 +587,7 @@ class QueryBuilderHandler
     protected function _performWithHelper_withManyVia($params, $resultIndexMap, &$result)
     {
         if (!isset($resultIndexMap[$params['original_table_id']])) {
-            throw new \Exception("Main query should have \"{$params['original_table_id']}\" "
-                . "to perform \"{$params['type']}\" on \"{$params['name']}\"");
+            return;
         }
         
         $originalTableResultIds = array_keys($resultIndexMap[$params['original_table_id']]);
@@ -663,8 +662,7 @@ class QueryBuilderHandler
     protected function _performWithHelper_withMany($params, $resultIndexMap, &$result)
     {
         if (!isset($resultIndexMap[$params['original_table_id']])) {
-            throw new \Exception("Main query should have \"{$params['original_table_id']}\" "
-                . "to perform \"{$params['type']}\" on \"{$params['name']}\"");
+            return;
         }
 
         if ($params['chunk_size'] === false) {
