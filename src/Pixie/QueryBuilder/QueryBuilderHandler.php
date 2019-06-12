@@ -87,6 +87,13 @@ class QueryBuilderHandler
     protected $mapFunctions = [];
 
     /**
+     * Function that might be perform on the final result
+     *
+     * @var callable
+     */
+    protected $changeResultHandler;
+
+    /**
      * @see $this->withMany() and $this->withManyVia()
      * @var array
      */
@@ -312,6 +319,23 @@ class QueryBuilderHandler
     public function map(callable $mapFunction)
     {
         $this->mapFunctions[] = $mapFunction;
+        return $this;
+    }
+
+    /**
+     * This function result will replace final result
+     * 
+     * Example:
+     *      ->changeFinalResult(function($result) {
+     *          return $newResult;
+     *      })
+     * 
+     * @param callable $changeFunction
+     * @return $this
+     */
+    public function changeFinalResult(callable $changeFunction)
+    {
+        $this->changeResultHandler = $changeFunction;
         return $this;
     }
 
@@ -747,6 +771,22 @@ class QueryBuilderHandler
     }
 
     /**
+     * Helper function for get() to perform final result change
+     * if $this->changeResultHandler is set
+     *
+     * @param array $result
+     * @return array
+     */
+    protected function performFinalChange($result)
+    {
+        if ($this->changeResultHandler) {
+            $result = ($this->changeResultHandler)($result);
+        }
+
+        return $result;
+    }
+
+    /**
      * Get 1-dimmenstional array with values from the first selected column
      *
      * @return array
@@ -829,14 +869,14 @@ class QueryBuilderHandler
             $result = $this->cacheHandler->get($cacheKey);
 
             if ($result === false) {
-                $result = $this->mapResults($this->performWith($this->getResult()));
+                $result = $this->performFinalChange($this->mapResults($this->performWith($this->getResult())));
 
                 $this->cacheHandler->set($cacheKey, $result, $this->cacheTtl);
             }
 
             return $result;
         }
-        return $this->mapResults($this->performWith($this->getResult()));
+        return $this->performFinalChange($this->mapResults($this->performWith($this->getResult())));
     }
 
     /**
