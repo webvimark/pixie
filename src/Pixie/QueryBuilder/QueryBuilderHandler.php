@@ -89,9 +89,9 @@ class QueryBuilderHandler
     /**
      * Function that might be perform on the final result
      *
-     * @var callable
+     * @var array
      */
-    protected $changeResultHandler;
+    protected $changeResultHandlers = [];
 
     /**
      * @see $this->withMany() and $this->withManyVia()
@@ -323,7 +323,9 @@ class QueryBuilderHandler
     }
 
     /**
-     * This function result will replace final result
+     * This function result will replace final result. Unlike ->map() which perform function
+     * on result array elements one by one, this funciton will accepts final result and
+     * replace output with it's own result
      * 
      * Example:
      *      ->changeFinalResult(function($result) {
@@ -335,7 +337,7 @@ class QueryBuilderHandler
      */
     public function changeFinalResult(callable $changeFunction)
     {
-        $this->changeResultHandler = $changeFunction;
+        $this->changeResultHandlers[] = $changeFunction;
         return $this;
     }
 
@@ -613,7 +615,7 @@ class QueryBuilderHandler
         if (!isset($resultIndexMap[$params['original_table_id']])) {
             return;
         }
-        
+
         $originalTableResultIds = array_keys($resultIndexMap[$params['original_table_id']]);
 
         $viaTableData = [];
@@ -651,27 +653,24 @@ class QueryBuilderHandler
             $externalData = array_merge($externalData, $qb->get());
         }
 
-        $externalDataMap = [];
+        $indexedViaTableData = [];
+        foreach ($viaTableData as $value) {
+            $indexedViaTableData[$value[$params['via_table_external_id']]][] = $value[$params['via_table_original_id']];
+        }
+
         foreach ($externalData as $value) {
             $external_table_id = $value['___placeholder'];
             unset($value['___placeholder']);
-            $externalDataMap[$external_table_id][] = $value;
-        }
-
-        foreach ($viaTableData as $viaVal) {
-            if (isset($externalDataMap[$viaVal[$params['via_table_external_id']]])) {
-                foreach ($resultIndexMap[$params['original_table_id']][$viaVal[$params['via_table_original_id']]] as $index) {
-                    $result[$index][$params['name']] = array_merge(
-                        $result[$index][$params['name']],
-                        $externalDataMap[$viaVal[$params['via_table_external_id']]]
-                    );
+            foreach ($indexedViaTableData[$external_table_id] as $originalTableId) {
+                foreach ($resultIndexMap[$params['original_table_id']][$originalTableId] as $index) {
+                    $result[$index][$params['name']][] = $value;
                 }
             }
         }
 
         $externalData = null;
         $viaTableData = null;
-        $externalDataMap = null;
+        $indexedViaTableData = null;
         $originalTableResultIds = null;
         $resultIndexMap = null;
     }
@@ -763,8 +762,12 @@ class QueryBuilderHandler
      */
     protected function mapResults($result)
     {
-        foreach ($this->mapFunctions as $function) {
-            $result = array_map($function, $result);
+        if ($this->mapFunctions) {
+            foreach ($result as &$item) {
+                foreach ($this->mapFunctions as $function) {
+                    $item = ($function)($item);
+                }
+            }
         }
 
         return $result;
@@ -772,15 +775,15 @@ class QueryBuilderHandler
 
     /**
      * Helper function for get() to perform final result change
-     * if $this->changeResultHandler is set
+     * if $this->changeResultHandlers is set
      *
      * @param array $result
      * @return array
      */
     protected function performFinalChange($result)
     {
-        if ($this->changeResultHandler) {
-            $result = ($this->changeResultHandler)($result);
+        foreach ($this->changeResultHandlers as $function) {
+            $result = ($function)($result);
         }
 
         return $result;
