@@ -1,4 +1,5 @@
 <?php
+
 namespace Pixie\QueryBuilder;
 
 use PDO;
@@ -508,8 +509,8 @@ class QueryBuilderHandler
      */
     public function paginate($currentPage, $perPage = 20, $lateLookup = false, $preDefinedTotal = false)
     {
-        $currentPage = (int)$currentPage >= 1 ? (int)$currentPage : 1;
-        $perPage = (int)$perPage >= 1 ? (int)$perPage : 1;
+        $currentPage = (int) $currentPage >= 1 ? (int) $currentPage : 1;
+        $perPage = (int) $perPage >= 1 ? (int) $perPage : 1;
 
         $this->limit($perPage)->offset(($currentPage - 1) * $perPage);
 
@@ -739,11 +740,13 @@ class QueryBuilderHandler
             $original_table_id = $val['___placeholder'];
             unset($val['___placeholder']);
 
-            foreach ($resultIndexMap[$params['original_table_id']][$original_table_id] as $index) {
-                if ($params['type'] === 'withOne') {
-                    $result[$index][$params['name']] = $val;
-                } else {
-                    $result[$index][$params['name']][] = $val;
+            if (isset($resultIndexMap[$params['original_table_id']][$original_table_id]) && is_array($resultIndexMap[$params['original_table_id']][$original_table_id])) {
+                foreach ($resultIndexMap[$params['original_table_id']][$original_table_id] as $index) {
+                    if ($params['type'] === 'withOne') {
+                        $result[$index][$params['name']] = $val;
+                    } else {
+                        $result[$index][$params['name']][] = $val;
+                    }
                 }
             }
         }
@@ -1003,9 +1006,9 @@ class QueryBuilderHandler
         }
 
         if (is_array($row[0])) {
-            return (int)$row[0]['field'];
+            return (int) $row[0]['field'];
         } elseif (is_object($row[0])) {
-            return (int)$row[0]->field;
+            return (int) $row[0]->field;
         }
 
         return 0;
@@ -1429,7 +1432,7 @@ class QueryBuilderHandler
             $value = $operator;
             $operator = '=';
         } elseif (func_num_args() == 4) {
-            if (!(bool)$filterMode) {
+            if (!(bool) $filterMode) {
                 return $this;
             }
         }
