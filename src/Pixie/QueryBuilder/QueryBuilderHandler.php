@@ -1405,7 +1405,7 @@ class QueryBuilderHandler
 
         foreach ($keys as $key) {
             if (isset($data[$key]) && trim($data[$key]) !== '') {
-                $value = strtolower($operator) === 'like' ? '%' . trim($data[$key]) . '%' : trim($data[$key]);
+                $value = strtolower($operator) === 'like' ? trim($data[$key]) . '%' : trim($data[$key]);
                 $this->whereHandler($key, $operator, $value);
             }
         }
